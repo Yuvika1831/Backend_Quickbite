@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  VENDOR
+  ADMIN
+}
+
+model User {
+  id          Int              @id @default(autoincrement())
+  name        String
+  email       String           @unique
+  password    String
+  phone       String?
+  role        Role             @default(USER)
+  orders      Order[]
+  restaurants Restaurant[]
+  addresses   Address[]
+  memberships UserMembership[]
+  createdAt   DateTime         @default(now())
+
+  @@map("user")
+}
+
+model Restaurant {
+  id           Int        @id @default(autoincrement())
+  name         String
+  description  String?
+  category     String
+  image        String
+  checkoutTime Int
+  isFeatured   Boolean    @default(false)
+  menuItems    MenuItem[]
+  categories   Category[]
+  orders       Order[]
+  owner        User?      @relation(fields: [ownerId], references: [id])
+  ownerId      Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("restaurant")
+}
+
+model Category {
+  id           Int         @id @default(autoincrement())
+  name         String
+  image        String?
+  featured     Boolean     @default(false)
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId Int?
+
+  @@map("category")
+}
+
+model MenuItem {
+  id           Int         @id @default(autoincrement())
+  name         String
+  description  String
+  price        Float
+  image        String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  restaurantId Int
+  isActive     Boolean     @default(true)
+  orderItems   OrderItem[]
+
+  @@map("menuitem")
+}
+
+model Order {
+  id               Int         @id @default(autoincrement())
+  user             User        @relation(fields: [userId], references: [id])
+  userId           Int
+  restaurant       Restaurant  @relation(fields: [restaurantId], references: [id])
+  restaurantId     Int
+  total            Float
+  status           String      @default("Preparing")
+  paymentMethod    String?
+  deliveryName     String?
+  deliveryPhone    String?
+  deliveryAddress  String?
+  deliveryTime     DateTime?
+  deliveryStatus   String?     @default("Pending")
+  deliveryPersonId Int?
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+
+  @@map("order")
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  order      Order    @relation(fields: [orderId], references: [id])
+  orderId    Int
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId Int
+  quantity   Int
+  price      Float
+
+  @@map("orderitem")
+}
+
+model Address {
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  street    String
+  city      String
+  state     String
+  pincode   String
+  isDefault Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("address")
+}
+
+model MembershipPlan {
+  id               Int              @id @default(autoincrement())
+  name             String
+  price            Float
+  benefits         String
+  duration         Int
+
+  discountPercent  Int              @default(0)
+  minOrderAmount   Float            @default(0)
+
+  memberships      UserMembership[]
+
+  @@map("membership_plan")
+}
+model UserMembership {
+  id        Int            @id @default(autoincrement())
+  userId    Int
+  planId    Int
+  startDate DateTime       @default(now())
+  endDate   DateTime
+  status    String         @default("active")
+
+  user      User           @relation(fields: [userId], references: [id])
+  plan      MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@map("user_membership")
+}
+
+model Coupon {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  discount        Float
+  minOrderAmount  Float
+  expiryDate      DateTime
+  isActive        Boolean  @default(true)
+  allowedPlan     String?
+
+  @@map("coupon")
+}
