@@ -1,0 +1,38 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "QuickBite Backend",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "build": "npm install",
+    "postinstall": "npx prisma generate --schema=prisma/schema.prisma",
+    "generate": "npx dotenv -e .env -- npx prisma generate --schema=prisma/schema.prisma",
+    "migrate": "npx dotenv -e .env -- npx prisma migrate dev --name init --schema=prisma/schema.prisma",
+    "client": "cd ../quickbite-frontend && npm start",
+    "start-all": "concurrently \"npm run dev\" \"npm run client\""
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "@google/generative-ai": "^0.21.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.16.3",
+    "redis": "^5.10.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "dotenv-cli": "^11.0.0",
+    "nodemon": "^3.1.10",
+    "prisma": "^6.19.0"
+  }
+}
