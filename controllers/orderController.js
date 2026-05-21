@@ -2,29 +2,57 @@ const prisma = require("../prisma/client");
 const { sendStatusUpdateEmail } = require("../utils/emailService");
 
 // --------------------------
-// PLACE ORDER (UNCHANGED)
+// PLACE ORDER
 // --------------------------
 const placeOrder = async (req, res) => {
   try {
     const userId = Number(req.user.id);
-    const { restaurantId, items, paymentMethod = "COD", deliveryInfo } = req.body;
+
+    const {
+      restaurantId,
+      items,
+      paymentMethod = "COD",
+      deliveryInfo,
+
+      // NEW
+      couponDiscount = 0,
+      membershipDiscount = 0,
+    } = req.body;
 
     if (!restaurantId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Invalid order payload" });
     }
 
-    const total = items.reduce(
-      (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0),
+    // SUBTOTAL
+    const subtotal = items.reduce(
+      (sum, it) =>
+        sum + Number(it.price || 0) * Number(it.quantity || 0),
       0
     );
+
+    // TOTAL DISCOUNT
+    const totalDiscount =
+      Number(couponDiscount || 0) +
+      Number(membershipDiscount || 0);
+
+    // FINAL TOTAL
+    const finalTotal = Math.max(subtotal - totalDiscount, 0);
 
     const order = await prisma.order.create({
       data: {
         userId,
         restaurantId: Number(restaurantId),
+
         status: "Pending",
-        total,
+
+        // STORE VALUES
+        subtotal,
+        couponDiscount,
+        membershipDiscount,
+        total: finalTotal,
+
         paymentMethod,
+
         deliveryName: deliveryInfo?.name,
         deliveryPhone: deliveryInfo?.phone,
         deliveryAddress: deliveryInfo?.address,
@@ -53,6 +81,7 @@ const placeOrder = async (req, res) => {
       message: "Order placed successfully",
       order: fullOrder,
     });
+
   } catch (err) {
     console.error("❌ placeOrder error", err);
     res.status(500).json({ error: err.message });
@@ -60,7 +89,7 @@ const placeOrder = async (req, res) => {
 };
 
 // --------------------------
-// GET ORDER (UNCHANGED)
+// GET ORDER
 // --------------------------
 const getOrder = async (req, res) => {
   try {
@@ -69,15 +98,22 @@ const getOrder = async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: { include: { menuItem: true } },
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
         user: true,
         restaurant: true,
       },
     });
 
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
 
     res.json(order);
+
   } catch (err) {
     console.error("❌ getOrder error", err);
     res.status(500).json({ error: err.message });
@@ -85,14 +121,14 @@ const getOrder = async (req, res) => {
 };
 
 // --------------------------
-// UPDATE STATUS (FIXED SAFE)
+// UPDATE STATUS
 // --------------------------
 const updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
     let { status } = req.body;
 
-    // 🔥 FIX: frontend compatibility mapping
+    // FRONTEND COMPATIBILITY
     if (status === "Ready to Deliver") {
       status = "Out for Delivery";
     }
@@ -118,22 +154,36 @@ const updateStatus = async (req, res) => {
       },
     });
 
-    // EMAIL LOGIC (UNCHANGED)
+    // EMAIL LOGIC
     if (order.user?.email) {
       try {
+
         if (status === "Confirmed") {
-          await sendStatusUpdateEmail(order, order.user.email, "Order Confirmed");
+          await sendStatusUpdateEmail(
+            order,
+            order.user.email,
+            "Order Confirmed"
+          );
         }
 
         if (status === "Preparing") {
-          await sendStatusUpdateEmail(order, order.user.email, "Preparing");
+          await sendStatusUpdateEmail(
+            order,
+            order.user.email,
+            "Preparing"
+          );
         }
 
         if (status === "Out for Delivery") {
-          await sendStatusUpdateEmail(order, order.user.email, "Ready to Deliver");
+          await sendStatusUpdateEmail(
+            order,
+            order.user.email,
+            "Ready to Deliver"
+          );
         }
 
         console.log("✅ Status email sent:", status);
+
       } catch (err) {
         console.log("❌ Email failed:", err.message);
       }
